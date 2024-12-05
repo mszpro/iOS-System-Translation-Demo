@@ -25,6 +25,10 @@ struct ContentView: View {
                     LanguageAvailabilityChecker()
                 }
                 
+                NavigationLink("Translate multiple strings at once") {
+                    MultipleTranslate()
+                }
+                
             }
             .toolbar {
                 ToolbarItem(placement: .navigation) {

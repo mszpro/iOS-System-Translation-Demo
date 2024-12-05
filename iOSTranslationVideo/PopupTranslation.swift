@@ -50,8 +50,9 @@ struct PopupTranslation: View {
             }
 #if canImport(Translation)
             .translationPresentation(isPresented: $isTranslationShown,
-                                     text: self.sourceText) { newString in
-                self.sourceText = newString
+                                     text: self.sourceText)
+            { newString in
+                self.targetText = newString
             }
 #endif
         }

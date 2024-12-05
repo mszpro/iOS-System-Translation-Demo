@@ -42,7 +42,7 @@ struct CustomTranslation: View {
         .task {
             // fetch the text
             do {
-                let (data, response) = try await URLSession.shared.data(from: URL(string: "https://raw.githubusercontent.com/swiftlang/swift/refs/heads/main/.github/ISSUE_TEMPLATE/task.yml")!)
+                let (data, _) = try await URLSession.shared.data(from: URL(string: "https://raw.githubusercontent.com/swiftlang/swift/refs/heads/main/.github/ISSUE_TEMPLATE/task.yml")!)
                 guard let webPageContent = String(data: data, encoding: .utf8) else { return }
                 // start a translation to Japanese
                 self.textToTranslate = webPageContent
@@ -58,3 +58,7 @@ struct CustomTranslation: View {
 #Preview {
     CustomTranslation()
 }
+
+
+
+

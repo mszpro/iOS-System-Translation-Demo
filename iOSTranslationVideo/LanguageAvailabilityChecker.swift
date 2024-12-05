@@ -14,8 +14,8 @@ fileprivate class ViewModel: ObservableObject {
     
     @Published var languageStatus: LanguageAvailability.Status = .unsupported
     
-    @Published var sourceFilter: String = ""
-    @Published var targetFilter: String = ""
+    @Published var sourceFilter: String = "English"
+    @Published var targetFilter: String = "German"
     
     let languages: [Locale.Language]
     
@@ -62,113 +62,81 @@ fileprivate class ViewModel: ObservableObject {
     }
 }
 
+
 struct LanguageAvailabilityChecker: View {
     @StateObject fileprivate var viewModel = ViewModel()
-    @State private var buttonTapped = false
-    
-    var configuration: TranslationSession.Configuration {
-        TranslationSession.Configuration(
-            source: viewModel.sourceLanguage,
-            target: viewModel.targetLanguage
-        )
-    }
     
     var body: some View {
-        NavigationView {
-            Form {
-                // Source Language Section
-                Section(header: Text("Source Language")) {
-                    TextField("Filter languages", text: $viewModel.sourceFilter)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .padding(.vertical, 4)
-                    
-                    Picker("Select Source Language", selection: $viewModel.sourceLanguage) {
-                        ForEach(viewModel.filteredSourceLanguages, id: \.maximalIdentifier) { language in
-                            Button {} label: {
-                                Text(viewModel.displayName(for: language))
-                                Text(language.minimalIdentifier)
-                            }
-                            .tag(language)
-                        }
-                    }
-                    .onChange(of: viewModel.sourceLanguage) { _, _ in
-                        Task {
-                            await viewModel.checkLanguageSupport()
-                        }
-                    }
-                }
+        Form {
+            // Source Language Section
+            Section("Source Language") {
+                TextField("Filter languages", text: $viewModel.sourceFilter)
+                    .padding(.vertical, 4)
                 
-                // Target Language Section
-                Section(header: Text("Target Language")) {
-                    TextField("Filter languages", text: $viewModel.targetFilter)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .padding(.vertical, 4)
-                    
-                    Picker("Select Target Language", selection: $viewModel.targetLanguage) {
-                        ForEach(viewModel.filteredTargetLanguages, id: \.maximalIdentifier) { language in
-                            Button {} label: {
-                                Text(viewModel.displayName(for: language))
-                                Text(language.minimalIdentifier)
-                            }
-                            .tag(language)
+                Picker("Select Source Language", selection: $viewModel.sourceLanguage) {
+                    ForEach(viewModel.filteredSourceLanguages, id: \.maximalIdentifier) { language in
+                        Button {} label: {
+                            Text(viewModel.displayName(for: language))
+                            Text(language.minimalIdentifier)
                         }
-                    }
-                    .onChange(of: viewModel.targetLanguage) { _, _ in
-                        Task {
-                            await viewModel.checkLanguageSupport()
-                        }
+                        .tag(language)
                     }
                 }
-                
-                // Status Section
-                Section {
-                    HStack {
-                        Spacer()
-                        if viewModel.languageStatus == .installed {
-                            Text("✅ Translation Installed")
-                                .foregroundColor(.green)
-                        } else if viewModel.languageStatus == .supported {
-                            Text("⬇️ Translation Available to Download")
-                                .foregroundColor(.orange)
-                        } else {
-                            Text("❌ Translation Not Supported")
-                                .foregroundColor(.red)
-                        }
-                        Spacer()
-                    }
-                }
-                
-                // Download Button Section
-                if viewModel.languageStatus == .supported {
-                    Section {
-                        Button(action: {
-                            buttonTapped = true
-                        }) {
-                            Text("Download Translation")
-                                .frame(maxWidth: .infinity)
-                        }
-                    }
-                }
-            }
-            .navigationTitle("Language Selector")
-            .onAppear {
-                Task {
-                    await viewModel.checkLanguageSupport()
-                }
-            }
-            .translationTask(configuration) { session in
-                if buttonTapped {
-                    do {
-                        // Display a sheet asking the user's permission to start downloading the language pairing.
-                        try await session.prepareTranslation()
-                        // Update the language status after downloading
+                .disabled(viewModel.filteredSourceLanguages.isEmpty)
+                .onChange(of: viewModel.sourceLanguage) { _, _ in
+                    Task {
                         await viewModel.checkLanguageSupport()
-                        buttonTapped = false
-                    } catch {
-                        // Handle any errors.
-                        print("Error downloading translation: \(error)")
                     }
                 }
+            }
+            
+            // Target Language Section
+            Section("Target Language") {
+                TextField("Filter languages", text: $viewModel.targetFilter)
+                
+                Picker("Select Target Language", selection: $viewModel.targetLanguage) {
+                    ForEach(viewModel.filteredTargetLanguages, id: \.maximalIdentifier) { language in
+                        Button {} label: {
+                            Text(viewModel.displayName(for: language))
+                            Text(language.minimalIdentifier)
+                        }
+                        .tag(language)
+                    }
+                }
+                .disabled(viewModel.filteredTargetLanguages.isEmpty)
+                .onChange(of: viewModel.targetLanguage) { _, _ in
+                    Task {
+                        await viewModel.checkLanguageSupport()
+                    }
+                }
+            }
+            
+            // Status Section
+            Section {
+                if viewModel.languageStatus == .installed {
+                    Text("✅ Translation Installed")
+                        .foregroundColor(.green)
+                } else if viewModel.languageStatus == .supported {
+                    Text("⬇️ Translation Available to Download")
+                        .foregroundColor(.orange)
+                } else {
+                    Text("❌ Translation Not Supported")
+                        .foregroundColor(.red)
+                }
+            }
+            
+            // Download Button Section
+            if viewModel.languageStatus == .supported {
+                NavigationLink("Download") {
+                    TranslationModelDownloader(sourceLanguage: viewModel.sourceLanguage,
+                                               targetLanguage: viewModel.targetLanguage)
+                }
+            }
+        }
+        .navigationTitle("Language Selector")
+        .onAppear {
+            Task {
+                await viewModel.checkLanguageSupport()
             }
         }
     }
@@ -176,4 +144,27 @@ struct LanguageAvailabilityChecker: View {
 
 #Preview {
     LanguageAvailabilityChecker()
+}
+
+struct TranslationModelDownloader: View {
+    
+    var configuration: TranslationSession.Configuration
+    
+    init(sourceLanguage: Locale.Language, targetLanguage: Locale.Language) {
+        self.configuration = TranslationSession.Configuration(source: sourceLanguage, target: targetLanguage)
+    }
+    
+    var body: some View {
+        NavigationView {
+            Text("Download translation files between \(configuration.source?.minimalIdentifier ?? "?") and \(configuration.target?.minimalIdentifier ?? "?")")
+            .translationTask(configuration) { session in
+                do {
+                    try await session.prepareTranslation()
+                } catch {
+                    // Handle any errors.
+                    print("Error downloading translation: \(error)")
+                }
+            }
+        }
+    }
 }
